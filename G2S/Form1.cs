@@ -14,6 +14,8 @@ using System.Data.SQLite;
 using Sunny.UI;
 using System.Threading;
 using System.Diagnostics;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace G2S
 {
@@ -145,7 +147,6 @@ namespace G2S
                     return;
                 }
 
-                // 获取启用的包数量
                 var enabledPackages = sqlConfigs.Keys.Where(k => packageStates.ContainsKey(k) && packageStates[k]).ToList();
                 if (enabledPackages.Count == 0)
                 {
@@ -159,7 +160,7 @@ namespace G2S
 
                 try
                 {
-                    // 首先从总包中提取数据库文件
+                    // 从总包中提取数据库文件
                     UpdateLog("正在从总包中提取数据库文件...\n");
                     string originalDbPath = Path.Combine(workDir, "original_beida_soft.db");
                     
@@ -172,45 +173,12 @@ namespace G2S
                             {
                                 throw new FileNotFoundException("在总包中未找到数据库文件：databases/beida_soft.db");
                             }
-                            dbEntry.ExtractToFile(originalDbPath);
-                        }
-                    }, token);
 
-                    // 将数据库文件复制到目标目录
-                    string targetDbDir = Path.Combine(TargetPath.Text, "databases");
-                    if (!Directory.Exists(targetDbDir))
-                    {
-                        Directory.CreateDirectory(targetDbDir);
-                    }
-                    string targetDbPath = Path.Combine(targetDbDir, "beida_soft.db");
-                    File.Copy(originalDbPath, targetDbPath, true);
-                    UpdateLog("数据库文件已复制到目标目录\n");
-
-                    // 创建一个用于存放解压文件的临时目录
-                    string tempZipDir = Path.Combine(workDir, "zip_content");
-                    Directory.CreateDirectory(tempZipDir);
-
-                    // 解压总包到临时目录
-                    UpdateLog("正在解压总包...\n");
-                    await Task.Run(() =>
-                    {
-                        using (var archive = ZipFile.OpenRead(ZB_path.Text))
-                        {
-                            foreach (var entry in archive.Entries)
+                            // 使用缓冲流复制文件
+                            using (var source = dbEntry.Open())
+                            using (var destination = File.Create(originalDbPath))
                             {
-                                token.ThrowIfCancellationRequested();
-                                string destinationPath = Path.Combine(tempZipDir, entry.FullName);
-                                string destinationDir = Path.GetDirectoryName(destinationPath);
-
-                                if (!Directory.Exists(destinationDir))
-                                {
-                                    Directory.CreateDirectory(destinationDir);
-                                }
-
-                                if (!string.IsNullOrEmpty(entry.Name))
-                                {
-                                    entry.ExtractToFile(destinationPath, true);
-                                }
+                                CopyStream(source, destination, token);
                             }
                         }
                     }, token);
@@ -218,117 +186,192 @@ namespace G2S
                     int totalSteps = enabledPackages.Count;
                     int currentStep = 0;
 
-                    foreach (var packageName in enabledPackages)
+                    // 创建并行处理选项
+                    var parallelOptions = new ParallelOptions
                     {
-                        if (token.IsCancellationRequested)
-                        {
-                            UpdateLog("用户取消操作\n");
-                            break;
-                        }
+                        MaxDegreeOfParallelism = Math.Min(Environment.ProcessorCount, 4),
+                        CancellationToken = token
+                    };
 
+                    // 并行处理每个分包
+                    await Task.Run(() => Parallel.ForEach(enabledPackages, parallelOptions, (packageName) =>
+                    {
                         var packageStopwatch = new Stopwatch();
                         packageStopwatch.Start();
 
-                        await Task.Run(async () =>
+                        try
                         {
-                            try
+                            string sql = sqlConfigs[packageName];
+                            UpdateLog($"正在处理分包：{packageName}\n");
+
+                            // 为当前分包创建数据库副本
+                            string currentDbPath = Path.Combine(workDir, $"beida_soft_{packageName}.db");
+                            
+                            // 使用文件流复制数据库
+                            using (var source = File.OpenRead(originalDbPath))
+                            using (var destination = File.Create(currentDbPath))
                             {
-                                string sql = sqlConfigs[packageName];
-                                UpdateLog($"正在处理分包：{packageName}\n");
-                                UpdateProgress((int)((double)currentStep / totalSteps * 100));
+                                CopyStream(source, destination, token);
+                            }
 
-                                // 为当前分包创建数据库副本
-                                string currentDbPath = Path.Combine(workDir, $"beida_soft_{packageName}.db");
-                                File.Copy(originalDbPath, currentDbPath, true);
+                            UpdateLog($"正在执行SQL...\n");
+                            // 优化SQLite连接字符串，最大化性能参数
+                            var connectionStringBuilder = new SQLiteConnectionStringBuilder
+                            {
+                                DataSource = currentDbPath,
+                                Version = 3,
+                                CacheSize = -10000,  // 约10MB缓存，设置为负值表示使用KB为单位
+                                JournalMode = SQLiteJournalModeEnum.Memory,  // 日志放在内存中
+                                Pooling = true,
+                                SyncMode = SynchronizationModes.Off,  // 关闭同步模式
+                                PageSize = 32768,    // 增加页面大小到32KB
+                                DefaultTimeout = 300, // 增加超时时间到5分钟
+                                ReadOnly = false,
+                                BusyTimeout = 30000, // 繁忙时等待30秒
+                            };
 
-                                UpdateLog($"正在执行SQL...\n");
-                                await Task.Run(() =>
+                            using (var connection = new SQLiteConnection(connectionStringBuilder.ConnectionString))
+                            {
+                                connection.Open();
+                                
+                                // 设置一些性能优化的PRAGMA
+                                using (var cmd = new SQLiteCommand(connection))
                                 {
-                                    using (var connection = new SQLiteConnection($"Data Source={currentDbPath};Version=3;"))
-                                    {
-                                        connection.Open();
-                                        using (var transaction = connection.BeginTransaction())
-                                        {
-                                            try
-                                            {
-                                                var sqlStatements = sql.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
-                                                                     .Select(s => s.Trim())
-                                                                     .Where(s => !string.IsNullOrEmpty(s));
-
-                                                foreach (var sqlStatement in sqlStatements)
-                                                {
-                                                    token.ThrowIfCancellationRequested();
-                                                    using (var command = new SQLiteCommand(sqlStatement, connection, transaction))
-                                                    {
-                                                        UpdateLog($"执行SQL: {sqlStatement.Substring(0, Math.Min(50, sqlStatement.Length))}...\n");
-                                                        command.ExecuteNonQuery();
-                                                    }
-                                                }
-                                                transaction.Commit();
-                                                UpdateLog("SQL执行完成\n");
-                                            }
-                                            catch
-                                            {
-                                                transaction.Rollback();
-                                                throw;
-                                            }
-                                        }
-                                    }
-                                }, token);
-
-                                // 替换临时目录中的数据库文件
-                                string tempDbPath = Path.Combine(tempZipDir, "databases", "beida_soft.db");
-                                File.Copy(currentDbPath, tempDbPath, true);
-
-                                // 创建新的zip文件
-                                string zipFileName = Path.GetFileNameWithoutExtension(ZB_path.Text);
-                                string targetDir = TargetPath.Text;
-                                string newZipName = ReplacePackageName(zipFileName, packageName);
-                                string newZipPath = Path.Combine(targetDir, newZipName + ".zip");
-
-                                UpdateLog($"正在创建新的压缩包...\n");
-                                if (File.Exists(newZipPath))
-                                {
-                                    File.Delete(newZipPath);
+                                    cmd.CommandText = @"
+                                        PRAGMA temp_store = MEMORY;
+                                        PRAGMA mmap_size = 1099511627776;  -- 1TB
+                                        PRAGMA page_size = 32768;
+                                        PRAGMA cache_size = -10000;
+                                        PRAGMA journal_mode = MEMORY;
+                                        PRAGMA synchronous = OFF;
+                                        PRAGMA foreign_keys = OFF;
+                                        PRAGMA count_changes = 0;
+                                        PRAGMA locking_mode = NORMAL;
+                                        PRAGMA secure_delete = OFF;
+                                    ";
+                                    cmd.ExecuteNonQuery();
                                 }
+                                
+                                // 预先处理SQL语句
+                                var sqlStatements = sql.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
+                                                      .Select(s => s.Trim())
+                                                      .Where(s => !string.IsNullOrEmpty(s))
+                                                      .ToList();
 
-                                await Task.Run(() =>
+                                // 使用单个事务执行所有SQL
+                                using (var transaction = connection.BeginTransaction(System.Data.IsolationLevel.ReadUncommitted))  // 使用最低隔离级别
                                 {
-                                    using (var archive = ZipFile.Open(newZipPath, ZipArchiveMode.Create))
+                                    try
                                     {
-                                        foreach (string filePath in Directory.GetFiles(tempZipDir, "*.*", SearchOption.AllDirectories))
+                                        // 预编译所有SQL语句
+                                        var commands = new List<SQLiteCommand>();
+                                        foreach (var sqlStatement in sqlStatements)
                                         {
                                             token.ThrowIfCancellationRequested();
-                                            string relativePath = filePath.Substring(tempZipDir.Length + 1);
-                                            string entryName = relativePath.Replace('\\', '/');
-                                            using (var stream = File.OpenRead(filePath))
+                                            var command = new SQLiteCommand(sqlStatement, connection, transaction);
+                                            command.CommandTimeout = 0; // 无超时限制
+                                            commands.Add(command);
+                                        }
+
+                                        // 批量执行
+                                        foreach (var command in commands)
+                                        {
+                                            token.ThrowIfCancellationRequested();
+                                            command.ExecuteNonQuery();
+                                        }
+
+                                        // 清理命令
+                                        foreach (var command in commands)
+                                        {
+                                            command.Dispose();
+                                        }
+
+                                        transaction.Commit();
+                                    }
+                                    catch
+                                    {
+                                        transaction.Rollback();
+                                        throw;
+                                    }
+                                }
+
+                                // 在关闭连接前执行VACUUM以优化数据库文件
+                                using (var cmd = new SQLiteCommand("VACUUM;", connection))
+                                {
+                                    cmd.ExecuteNonQuery();
+                                }
+                            }
+
+                            // 创建新的zip文件
+                            string zipFileName = Path.GetFileNameWithoutExtension(ZB_path.Text);
+                            string targetDir = TargetPath.Text;
+                            string newZipName = ReplacePackageName(zipFileName, packageName);
+                            string newZipPath = Path.Combine(targetDir, newZipName + ".zip");
+
+                            if (File.Exists(newZipPath))
+                            {
+                                File.Delete(newZipPath);
+                            }
+
+                            // 使用流式处理创建新的压缩包
+                            using (var sourceArchive = ZipFile.OpenRead(ZB_path.Text))
+                            using (var destArchive = ZipFile.Open(newZipPath, ZipArchiveMode.Create))
+                            {
+                                foreach (var entry in sourceArchive.Entries)
+                                {
+                                    token.ThrowIfCancellationRequested();
+
+                                    var newEntry = destArchive.CreateEntry(entry.FullName, CompressionLevel.Optimal);
+                                    
+                                    // 使用缓冲流复制文件内容
+                                    using (var sourceStream = entry.Open())
+                                    using (var destStream = newEntry.Open())
+                                    {
+                                        if (entry.FullName.Equals("databases/beida_soft.db", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            // 如果是数据库文件，使用处理后的数据库
+                                            using (var dbFileStream = File.OpenRead(currentDbPath))
                                             {
-                                                var entry = archive.CreateEntry(entryName, CompressionLevel.Optimal);
-                                                using (var entryStream = entry.Open())
-                                                {
-                                                    stream.CopyTo(entryStream);
-                                                }
+                                                CopyStream(dbFileStream, destStream, token);
                                             }
                                         }
+                                        else
+                                        {
+                                            // 其他文件直接复制
+                                            CopyStream(sourceStream, destStream, token);
+                                        }
                                     }
-                                }, token);
+                                }
+                            }
 
-                                UpdateLog($"分包 {packageName} 处理完成，用时：{packageStopwatch.Elapsed.ToString(@"mm\:ss\.fff")}\n");
-                                currentStep++;
-                                UpdateProgress((int)((double)currentStep / totalSteps * 100));
-                            }
-                            catch (OperationCanceledException)
+                            UpdateLog($"分包 {packageName} 处理完成，用时：{packageStopwatch.Elapsed.ToString(@"mm\:ss\.fff")}\n");
+                            Interlocked.Increment(ref currentStep);
+                            UpdateProgress((int)((double)currentStep / totalSteps * 100));
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            UpdateLog($"处理分包 {packageName} 时被用户取消\n");
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            UpdateLog($"处理分包 {packageName} 时出错：{ex.Message}\n");
+                            throw;
+                        }
+                        finally
+                        {
+                            // 及时删除临时数据库文件
+                            try
                             {
-                                UpdateLog($"处理分包 {packageName} 时被用户取消，用时：{packageStopwatch.Elapsed.ToString(@"mm\:ss\.fff")}\n");
-                                throw;
+                                string currentDbPath = Path.Combine(workDir, $"beida_soft_{packageName}.db");
+                                if (File.Exists(currentDbPath))
+                                {
+                                    File.Delete(currentDbPath);
+                                }
                             }
-                            catch (Exception ex)
-                            {
-                                UpdateLog($"处理分包 {packageName} 时出错：{ex.Message}，用时：{packageStopwatch.Elapsed.ToString(@"mm\:ss\.fff")}\n");
-                                throw;
-                            }
-                        });
-                    }
+                            catch { }
+                        }
+                    }));
 
                     if (!token.IsCancellationRequested)
                     {
@@ -425,6 +468,18 @@ namespace G2S
                 cancellationTokenSource?.Cancel();
             }
             base.OnFormClosing(e);
+        }
+
+        // 添加一个新的方法用于流式复制文件
+        private void CopyStream(Stream source, Stream destination, CancellationToken token, int bufferSize = 81920)
+        {
+            byte[] buffer = new byte[bufferSize];
+            int read;
+            while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                token.ThrowIfCancellationRequested();
+                destination.Write(buffer, 0, read);
+            }
         }
     }
 }
