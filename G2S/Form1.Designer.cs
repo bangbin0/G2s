@@ -44,6 +44,7 @@
             this.uiButton2 = new Sunny.UI.UIButton();
             this.uiTextBox1 = new Sunny.UI.UITextBox();
             this.P2_Log = new Sunny.UI.UIRichTextBox();
+            this.uiButton3 = new Sunny.UI.UIButton();
             this.uiTabControl1.SuspendLayout();
             this.P1.SuspendLayout();
             this.P2.SuspendLayout();
@@ -212,6 +213,7 @@
             // 
             // P2
             // 
+            this.P2.Controls.Add(this.uiButton3);
             this.P2.Controls.Add(this.P2_Log);
             this.P2.Controls.Add(this.uiButton2);
             this.P2.Controls.Add(this.uiTextBox1);
@@ -259,15 +261,28 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.P2_Log.FillColor = System.Drawing.Color.White;
             this.P2_Log.Font = new System.Drawing.Font("宋体", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.P2_Log.Location = new System.Drawing.Point(4, 48);
+            this.P2_Log.Location = new System.Drawing.Point(4, 89);
             this.P2_Log.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             this.P2_Log.MinimumSize = new System.Drawing.Size(1, 1);
             this.P2_Log.Name = "P2_Log";
             this.P2_Log.Padding = new System.Windows.Forms.Padding(2);
             this.P2_Log.ShowText = false;
-            this.P2_Log.Size = new System.Drawing.Size(808, 361);
+            this.P2_Log.Size = new System.Drawing.Size(808, 320);
             this.P2_Log.TabIndex = 8;
             this.P2_Log.TextAlignment = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // uiButton3
+            // 
+            this.uiButton3.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.uiButton3.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.uiButton3.Font = new System.Drawing.Font("宋体", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.uiButton3.Location = new System.Drawing.Point(712, 46);
+            this.uiButton3.MinimumSize = new System.Drawing.Size(1, 1);
+            this.uiButton3.Name = "uiButton3";
+            this.uiButton3.Size = new System.Drawing.Size(100, 35);
+            this.uiButton3.TabIndex = 9;
+            this.uiButton3.Text = "设置sql";
+            this.uiButton3.TipsFont = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             // 
             // Form1
             // 
@@ -302,6 +317,7 @@
         private Sunny.UI.UIRichTextBox P2_Log;
         private Sunny.UI.UIButton uiButton2;
         private Sunny.UI.UITextBox uiTextBox1;
+        private Sunny.UI.UIButton uiButton3;
     }
 }
 
