@@ -25,6 +25,9 @@ namespace G2S
         private bool isProcessing = false;
         private CancellationTokenSource cancellationTokenSource;
         private UIProcessBar processBar;
+        private Dictionary<string, string> adjustSqlConfigs = new Dictionary<string, string>();
+        private string currentAdjustSQL = "";
+        private string currentAdjustConfigPath = "adjustconfig.sql";
 
         public Form1()
         {
@@ -480,6 +483,140 @@ namespace G2S
                 token.ThrowIfCancellationRequested();
                 destination.Write(buffer, 0, read);
             }
+        }
+
+        private async void ExecuteAdjustSql(string zipPath, string sql)
+        {
+            try
+            {
+                string workDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+                Directory.CreateDirectory(workDir);
+
+                using (var sourceArchive = ZipFile.OpenRead(zipPath))
+                {
+                    var dbEntry = sourceArchive.GetEntry("databases/beida_soft.db");
+                    if (dbEntry == null)
+                    {
+                        UpdateP2Log($"在包 {Path.GetFileName(zipPath)} 中未找到数据库文件\n");
+                        return;
+                    }
+
+                    string dbPath = Path.Combine(workDir, "beida_soft.db");
+                    dbEntry.ExtractToFile(dbPath);
+
+                    var connectionString = new SQLiteConnectionStringBuilder
+                    {
+                        DataSource = dbPath,
+                        DefaultTimeout = 300,
+                        SyncMode = SynchronizationModes.Off
+                    }.ToString();
+
+                    using (var conn = new SQLiteConnection(connectionString))
+                    {
+                        await conn.OpenAsync();
+                        using (var transaction = conn.BeginTransaction())
+                        {
+                            try
+                            {
+                                var commands = sql.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                                foreach (var cmdText in commands)
+                                {
+                                    using (var cmd = new SQLiteCommand(cmdText.Trim(), conn, transaction))
+                                    {
+                                        await cmd.ExecuteNonQueryAsync();
+                                    }
+                                }
+                                transaction.Commit();
+                                UpdateP2Log($"成功处理包：{Path.GetFileName(zipPath)}\n");
+                            }
+                            catch
+                            {
+                                transaction.Rollback();
+                                throw;
+                            }
+                        }
+                    }
+
+                    // 更新压缩包中的数据库
+                    using (var destArchive = new ZipArchive(File.Open(zipPath, FileMode.Open), ZipArchiveMode.Update))
+                    {
+                        var entry = destArchive.GetEntry("databases/beida_soft.db");
+                        entry.Delete();
+                        var newEntry = destArchive.CreateEntry("databases/beida_soft.db");
+                        using (var stream = newEntry.Open())
+                        using (var fileStream = File.OpenRead(dbPath))
+                        {
+                            await fileStream.CopyToAsync(stream);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                UpdateP2Log($"处理包 {Path.GetFileName(zipPath)} 失败：{ex.Message}\n");
+            }
+        }
+
+        private void UpdateP2Log(string message)
+        {
+            if (P2_Log.InvokeRequired)
+            {
+                P2_Log.Invoke(new Action(() => UpdateP2Log(message)));
+            }
+            else
+            {
+                P2_Log.AppendText(message);
+                P2_Log.ScrollToCaret();
+            }
+        }
+
+        // 选择zip包目录
+        private void uiButton2_Click(object sender, EventArgs e)
+        {
+            using (var folderDialog = new FolderBrowserDialog())
+            {
+                if (folderDialog.ShowDialog() == DialogResult.OK)
+                {
+                    uiTextBox1.Text = folderDialog.SelectedPath;
+                }
+            }
+        }
+
+        // 设置SQL
+        private void uiButton3_Click(object sender, EventArgs e)
+        {
+            var form4 = new Form4();
+            if (form4.ShowDialog() == DialogResult.OK)
+            {
+                currentAdjustSQL = form4.SqlContent;
+                File.WriteAllText(currentAdjustConfigPath, currentAdjustSQL);
+            }
+        }
+
+        // 执行调整（需要先在Designer中添加uiButton4控件）
+        private async void uiButton4_Click(object sender, EventArgs e)
+        {
+            if (string.IsNullOrEmpty(uiTextBox1.Text) || !Directory.Exists(uiTextBox1.Text))
+            {
+                MessageBox.Show("请选择有效的ZIP包目录");
+                return;
+            }
+
+            if (!File.Exists(currentAdjustConfigPath))
+            {
+                MessageBox.Show("请先设置调整SQL");
+                return;
+            }
+
+            currentAdjustSQL = File.ReadAllText(currentAdjustConfigPath);
+
+            var zipFiles = Directory.GetFiles(uiTextBox1.Text, "*.zip");
+            foreach (var zipFile in zipFiles)
+            {
+                UpdateP2Log($"正在处理：{Path.GetFileName(zipFile)}...\n");
+                await Task.Run(() => ExecuteAdjustSql(zipFile, currentAdjustSQL));
+            }
+            UpdateP2Log("所有调整操作已完成！\n");
         }
     }
 }
