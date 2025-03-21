@@ -565,7 +565,7 @@ namespace G2S
             }
             else
             {
-                P2_Log.AppendText(message);
+                P2_Log.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}");
                 P2_Log.ScrollToCaret();
             }
         }
@@ -617,6 +617,52 @@ namespace G2S
                 await Task.Run(() => ExecuteAdjustSql(zipFile, currentAdjustSQL));
             }
             UpdateP2Log("所有调整操作已完成！\n");
+        }
+
+        // 添加新的执行方法
+        private async void uiSymbolButton1_Click(object sender, EventArgs e)
+        {
+            if (string.IsNullOrEmpty(uiTextBox1.Text) || !Directory.Exists(uiTextBox1.Text))
+            {
+                MessageBox.Show("请先选择包含数据包的目录");
+                return;
+            }
+
+            if (!File.Exists(currentAdjustConfigPath))
+            {
+                MessageBox.Show("请先设置调整SQL");
+                return;
+            }
+
+            try
+            {
+                currentAdjustSQL = File.ReadAllText(currentAdjustConfigPath);
+                var zipFiles = Directory.GetFiles(uiTextBox1.Text, "*.zip");
+                
+                // 禁用按钮防止重复点击
+                uiSymbolButton1.Enabled = false;
+                UpdateP2Log("开始批量处理数据包...\n");
+
+                foreach (var zipFile in zipFiles)
+                {
+                    try
+                    {
+                        UpdateP2Log($"正在处理：{Path.GetFileName(zipFile)}...");
+                        await Task.Run(() => ExecuteAdjustSql(zipFile, currentAdjustSQL));
+                        UpdateP2Log(" 完成\n");
+                    }
+                    catch (Exception ex)
+                    {
+                        UpdateP2Log($" 失败：{ex.Message}\n");
+                    }
+                }
+
+                UpdateP2Log("所有数据包处理完成！\n");
+            }
+            finally
+            {
+                uiSymbolButton1.Enabled = true;
+            }
         }
     }
 }

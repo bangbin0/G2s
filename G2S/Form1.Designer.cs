@@ -41,6 +41,7 @@
             this.uiTabControl1 = new Sunny.UI.UITabControl();
             this.P1 = new System.Windows.Forms.TabPage();
             this.P2 = new System.Windows.Forms.TabPage();
+            this.uiSymbolButton1 = new Sunny.UI.UISymbolButton();
             this.uiButton3 = new Sunny.UI.UIButton();
             this.P2_Log = new Sunny.UI.UIRichTextBox();
             this.uiButton2 = new Sunny.UI.UIButton();
@@ -104,10 +105,10 @@
             this.TargetPathBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.TargetPathBtn.Cursor = System.Windows.Forms.Cursors.Hand;
             this.TargetPathBtn.Font = new System.Drawing.Font("宋体", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.TargetPathBtn.Location = new System.Drawing.Point(712, 4);
+            this.TargetPathBtn.Location = new System.Drawing.Point(682, 4);
             this.TargetPathBtn.MinimumSize = new System.Drawing.Size(1, 1);
             this.TargetPathBtn.Name = "TargetPathBtn";
-            this.TargetPathBtn.Size = new System.Drawing.Size(100, 35);
+            this.TargetPathBtn.Size = new System.Drawing.Size(130, 35);
             this.TargetPathBtn.TabIndex = 3;
             this.TargetPathBtn.Text = "选择生成目录";
             this.TargetPathBtn.TipsFont = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
@@ -118,10 +119,10 @@
             this.StartBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.StartBtn.Cursor = System.Windows.Forms.Cursors.Hand;
             this.StartBtn.Font = new System.Drawing.Font("宋体", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.StartBtn.Location = new System.Drawing.Point(713, 45);
+            this.StartBtn.Location = new System.Drawing.Point(682, 45);
             this.StartBtn.MinimumSize = new System.Drawing.Size(1, 1);
             this.StartBtn.Name = "StartBtn";
-            this.StartBtn.Size = new System.Drawing.Size(100, 35);
+            this.StartBtn.Size = new System.Drawing.Size(131, 35);
             this.StartBtn.TabIndex = 5;
             this.StartBtn.Text = "开始生成";
             this.StartBtn.TipsFont = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
@@ -132,10 +133,10 @@
             this.AddSQlBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.AddSQlBtn.Cursor = System.Windows.Forms.Cursors.Hand;
             this.AddSQlBtn.Font = new System.Drawing.Font("宋体", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.AddSQlBtn.Location = new System.Drawing.Point(712, 86);
+            this.AddSQlBtn.Location = new System.Drawing.Point(682, 86);
             this.AddSQlBtn.MinimumSize = new System.Drawing.Size(1, 1);
             this.AddSQlBtn.Name = "AddSQlBtn";
-            this.AddSQlBtn.Size = new System.Drawing.Size(100, 35);
+            this.AddSQlBtn.Size = new System.Drawing.Size(130, 35);
             this.AddSQlBtn.TabIndex = 6;
             this.AddSQlBtn.Text = "添加分包代码";
             this.AddSQlBtn.TipsFont = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
@@ -214,6 +215,7 @@
             // 
             // P2
             // 
+            this.P2.Controls.Add(this.uiSymbolButton1);
             this.P2.Controls.Add(this.uiButton3);
             this.P2.Controls.Add(this.P2_Log);
             this.P2.Controls.Add(this.uiButton2);
@@ -225,15 +227,29 @@
             this.P2.Text = "数据调整";
             this.P2.UseVisualStyleBackColor = true;
             // 
+            // uiSymbolButton1
+            // 
+            this.uiSymbolButton1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.uiSymbolButton1.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.uiSymbolButton1.Font = new System.Drawing.Font("宋体", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.uiSymbolButton1.Location = new System.Drawing.Point(682, 46);
+            this.uiSymbolButton1.MinimumSize = new System.Drawing.Size(1, 1);
+            this.uiSymbolButton1.Name = "uiSymbolButton1";
+            this.uiSymbolButton1.Size = new System.Drawing.Size(131, 35);
+            this.uiSymbolButton1.TabIndex = 10;
+            this.uiSymbolButton1.Text = "开始生成";
+            this.uiSymbolButton1.TipsFont = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.uiSymbolButton1.Click += new System.EventHandler(this.uiSymbolButton1_Click);
+            // 
             // uiButton3
             // 
             this.uiButton3.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.uiButton3.Cursor = System.Windows.Forms.Cursors.Hand;
             this.uiButton3.Font = new System.Drawing.Font("宋体", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.uiButton3.Location = new System.Drawing.Point(712, 46);
+            this.uiButton3.Location = new System.Drawing.Point(545, 46);
             this.uiButton3.MinimumSize = new System.Drawing.Size(1, 1);
             this.uiButton3.Name = "uiButton3";
-            this.uiButton3.Size = new System.Drawing.Size(100, 35);
+            this.uiButton3.Size = new System.Drawing.Size(130, 35);
             this.uiButton3.TabIndex = 9;
             this.uiButton3.Text = "设置sql";
             this.uiButton3.TipsFont = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
@@ -261,10 +277,10 @@
             this.uiButton2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.uiButton2.Cursor = System.Windows.Forms.Cursors.Hand;
             this.uiButton2.Font = new System.Drawing.Font("宋体", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.uiButton2.Location = new System.Drawing.Point(712, 5);
+            this.uiButton2.Location = new System.Drawing.Point(682, 5);
             this.uiButton2.MinimumSize = new System.Drawing.Size(1, 1);
             this.uiButton2.Name = "uiButton2";
-            this.uiButton2.Size = new System.Drawing.Size(100, 35);
+            this.uiButton2.Size = new System.Drawing.Size(130, 35);
             this.uiButton2.TabIndex = 5;
             this.uiButton2.Text = "选择zip包目录";
             this.uiButton2.TipsFont = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
@@ -336,6 +352,7 @@
         private Sunny.UI.UITextBox uiTextBox1;
         private Sunny.UI.UIButton uiButton3;
         private Sunny.UI.UIButton uiButton4;
+        private Sunny.UI.UISymbolButton uiSymbolButton1;
     }
 }
 
